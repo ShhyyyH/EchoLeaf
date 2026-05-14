@@ -1,89 +1,119 @@
-import sqlite3
-import os
-from datetime import datetime, timezone
 import streamlit as st
 
-# --- 数据库路径 ---
-DB_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-DB_PATH = os.path.join(DB_DIR, "echoleaf.db")
+st.set_page_config(
+    page_title="EchoLeaf",
+    page_icon="🍃",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-os.makedirs(DB_DIR, exist_ok=True)
+# ====== 全局样式 ======
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
+}
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS readings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            reflection TEXT DEFAULT '',
-            created_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    return conn
+/* 侧边栏 */
+[data-testid="stSidebar"] {
+    background-color: #FAFAF8;
+    border-right: 1px solid #E8E6E0;
+}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+    font-family: 'Lora', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: #2C2C2A;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+}
+[data-testid="stSidebar"] .stRadio label {
+    font-size: 14px;
+    color: #5F5E5A;
+}
 
+/* 主区域 */
+.main .block-container {
+    background: #FFFFFF;
+    padding-top: 2rem;
+    max-width: 800px;
+}
 
-def save_reading(title: str, reflection: str):
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        "INSERT INTO readings (title, reflection, created_at) VALUES (?, ?, ?)",
-        (title.strip(), reflection.strip(), datetime.now(timezone.utc).isoformat()),
+/* 共用组件 */
+.el-title {
+    font-family: 'Lora', serif;
+    font-size: 26px;
+    font-weight: 500;
+    color: #2C2C2A;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+}
+.el-subtitle {
+    font-size: 14px;
+    color: #888780;
+    margin-bottom: 2rem;
+    font-style: italic;
+}
+.el-tag {
+    display: inline-block;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: #EEEDFE;
+    color: #3C3489;
+    margin: 3px 3px 3px 0;
+    border: 0.5px solid #AFA9EC;
+}
+.el-insight {
+    background: #FAFAF8;
+    border-left: 2px solid #AFA9EC;
+    border-radius: 0 8px 8px 0;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+    color: #5F5E5A;
+    line-height: 1.65;
+    margin-bottom: 1.25rem;
+}
+.el-card {
+    background: #FAFAF8;
+    border: 0.5px solid #E8E6E0;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+}
+
+/* 按钮 */
+[data-testid="stButton"] button {
+    background: #2C2C2A;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 0.5rem 1.5rem;
+    font-family: 'DM Sans', sans-serif;
+    width: 100%;
+}
+[data-testid="stButton"] button:hover {
+    background: #444441;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ====== 侧边栏导航 ======
+with st.sidebar:
+    st.markdown("EchoLeaf")
+    st.markdown(
+        "<p style='font-family:DM Sans;font-size:12px;color:#B4B2A9;font-style:italic;margin-top:-0.5rem'>"
+        "Every story leaves a trace.</p>",
+        unsafe_allow_html=True
     )
-    conn.commit()
-    conn.close()
+    st.markdown("---")
 
-
-def load_readings():
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute(
-        "SELECT id, title, reflection, created_at FROM readings ORDER BY created_at DESC"
-    ).fetchall()
-    conn.close()
-    return rows
-
-
-# --- 页面 ---
-st.set_page_config(page_title="EchoLeaf", page_icon="📖")
-
-init_db()
-
-st.title("EchoLeaf")
-st.caption("记录你与书之间的情感关系")
-
-# --- 输入表单 ---
-with st.form("reading_form"):
-    title = st.text_input("书名", placeholder="输入你正在读或刚读完的书名")
-    reflection = st.text_area(
-        "阅读感受",
-        placeholder="你现在想到这本书时，心里是什么感觉？有什么印象深刻的地方？",
-        height=150,
-    )
-    submitted = st.form_submit_button("保存")
-
-    if submitted:
-        if not title.strip():
-            st.warning("请填写书名")
-        elif not reflection.strip():
-            st.warning("请写下你的阅读感受")
-        else:
-            save_reading(title, reflection)
-            st.success(f"《{title.strip()}》的记录已保存")
-            st.rerun()
-
-# --- 历史记录 ---
-st.divider()
-st.subheader("阅读记录")
-
-readings = load_readings()
-
-if not readings:
-    st.info("还没有阅读记录，写一条吧。")
-else:
-    for row_id, row_title, row_reflection, row_time in readings:
-        with st.container():
-            display_time = row_time[:19].replace("T", " ")
-            st.markdown(f"### 《{row_title}》")
-            st.caption(display_time)
-            st.write(row_reflection)
-            st.divider()
+# ====== 欢迎页 ======
+st.markdown("<div class='el-title'>欢迎回来</div>", unsafe_allow_html=True)
+st.markdown("<div class='el-subtitle'>从侧边栏选择一个页面开始</div>", unsafe_allow_html=True)
